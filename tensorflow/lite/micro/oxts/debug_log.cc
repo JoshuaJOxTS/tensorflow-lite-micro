@@ -18,26 +18,26 @@ limitations under the License.
 
 #ifdef __cplusplus
 extern "C" {
-#endif  // __cplusplus
+#endif // __cplusplus
 
 #include "tensorflow/lite/micro/debug_log.h"
 
-#include "tensorflow/lite/micro/cortex_m_generic/debug_log_callback.h"
+#include "tensorflow/lite/micro/oxts/debug_log_callback.h"
 
 static DebugLogCallback debug_log_callback = nullptr;
 
-void RegisterDebugLogCallback(void (*cb)(const char* s)) {
-  debug_log_callback = cb;
+void RegisterDebugLogCallback(void (*cb)(const char *s)) {
+    debug_log_callback = cb;
 }
 
-void DebugLog(const char* s) {
+void DebugLog(const char *s) {
 #ifndef TF_LITE_STRIP_ERROR_STRINGS
-  if (debug_log_callback != nullptr) {
-    debug_log_callback(s);
-  }
+    if (debug_log_callback != nullptr) {
+        debug_log_callback(s);
+    }
 #endif
 }
 
 #ifdef __cplusplus
-}  // extern "C"
-#endif  // __cplusplus
+} // extern "C"
+#endif // __cplusplus
