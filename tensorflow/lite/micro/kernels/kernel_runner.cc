@@ -17,7 +17,6 @@ limitations under the License.
 
 #include "tensorflow/lite/micro/arena_allocator/single_arena_buffer_allocator.h"
 #include "tensorflow/lite/micro/micro_arena_constants.h"
-#include "tensorflow/lite/micro/micro_error_reporter.h"
 #include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/micro/test_helpers.h"
 
@@ -35,7 +34,7 @@ void ClearBufferApi(TfLiteContext* context_) {
   context_->RequestScratchBufferInArena = nullptr;
 }
 
-KernelRunner::KernelRunner(const TfLiteRegistration& registration,
+KernelRunner::KernelRunner(const TFLMRegistration& registration,
                            TfLiteTensor* tensors, int tensors_size,
                            TfLiteIntArray* inputs, TfLiteIntArray* outputs,
                            void* builtin_data, TfLiteIntArray* intermediates)
@@ -95,7 +94,7 @@ TfLiteStatus KernelRunner::Invoke() {
   context_.GetScratchBuffer = MicroContextGetScratchBuffer;
 
   if (registration_.invoke == nullptr) {
-    MicroPrintf("TfLiteRegistration missing invoke function pointer!");
+    MicroPrintf("TFLMRegistration missing invoke function pointer!");
     return kTfLiteError;
   }
 
@@ -106,12 +105,25 @@ TfLiteStatus KernelRunner::Invoke() {
   return kTfLiteOk;
 }
 
+TfLiteStatus KernelRunner::Reset() {
+  tflite::micro::ClearBufferApi(&context_);
+  context_.GetScratchBuffer = MicroContextGetScratchBuffer;
+
+  if (registration_.reset == nullptr) {
+    MicroPrintf("TFLMRegistration missing reset function pointer!");
+    return kTfLiteError;
+  }
+
+  registration_.reset(&context_, node_.user_data);
+  return kTfLiteOk;
+}
+
 TfLiteStatus KernelRunner::Free() {
   tflite::micro::ClearBufferApi(&context_);
   context_.GetScratchBuffer = MicroContextGetScratchBuffer;
 
   if (registration_.free == nullptr) {
-    MicroPrintf("TfLiteRegistration missing free function pointer!");
+    MicroPrintf("TFLMRegistration missing free function pointer!");
     return kTfLiteError;
   }
 

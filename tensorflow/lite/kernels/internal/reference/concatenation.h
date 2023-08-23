@@ -17,7 +17,7 @@ limitations under the License.
 #define TENSORFLOW_LITE_KERNELS_INTERNAL_REFERENCE_CONCATENATION_H_
 
 #include <algorithm>
-
+#include <cstdio>
 #include "tensorflow/lite/kernels/internal/common.h"
 #include "tensorflow/lite/kernels/internal/compatibility.h"
 #include "tensorflow/lite/kernels/internal/cppmath.h"
@@ -42,6 +42,7 @@ inline void Concatenation(const ConcatenationParams& params,
     TFLITE_DCHECK_EQ(input_shapes[i]->DimensionsCount(), concat_dimensions);
     for (int j = 0; j < concat_dimensions; j++) {
       if (j != axis) {
+        fprintf(stderr, "%d, %d: %d, %d\n",i,j, (*input_shapes[i]).Dims(j), output_shape.Dims(j));
         MatchingDim(*input_shapes[i], j, output_shape, j);
       }
     }

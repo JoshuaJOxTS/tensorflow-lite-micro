@@ -21,21 +21,10 @@ extern "C" {
 #endif // __cplusplus
 
 #include "tensorflow/lite/micro/debug_log.h"
+#include <cstdio>
 
-#include "tensorflow/lite/micro/oxts/debug_log_callback.h"
-
-static DebugLogCallback debug_log_callback = nullptr;
-
-void RegisterDebugLogCallback(void (*cb)(const char *s)) {
-    debug_log_callback = cb;
-}
-
-void DebugLog(const char *s) {
-#ifndef TF_LITE_STRIP_ERROR_STRINGS
-    if (debug_log_callback != nullptr) {
-        debug_log_callback(s);
-    }
-#endif
+void DebugLog(const char *format, va_list args) {
+    fprintf(stderr, format, args);
 }
 
 #ifdef __cplusplus

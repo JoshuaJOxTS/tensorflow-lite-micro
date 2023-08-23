@@ -11,6 +11,7 @@ file(GLOB_RECURSE SRCS
 )
 
 add_compile_definitions(CMSIS_NN)
+# add_compile_definitions(TF_LITE_STATIC_MEMORY)
 
 add_library(tflite-micro ${SRCS})
 
@@ -24,4 +25,6 @@ target_include_directories(tflite-micro PUBLIC
      third_party/cmsis/CMSIS/Core/Include
      third_party/cmsis/CMSIS/DSP/Include
      third_party/cmsis/CMSIS/NN/Include
+     third_party/cmsis_nn
+     third_party/cmsis_nn/Include
       )

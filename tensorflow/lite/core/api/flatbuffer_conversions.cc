@@ -20,9 +20,9 @@ limitations under the License.
 #include <memory>
 
 #include "flatbuffers/flatbuffers.h"  // from @flatbuffers
-#include "tensorflow/lite/c/builtin_op_data.h"
-#include "tensorflow/lite/c/common.h"
 #include "tensorflow/lite/core/api/error_reporter.h"
+#include "tensorflow/lite/core/c/builtin_op_data.h"
+#include "tensorflow/lite/core/c/common.h"
 #include "tensorflow/lite/kernels/internal/compatibility.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 
@@ -254,6 +254,10 @@ TfLiteStatus ParseOpDataTfLite(const Operator* op, BuiltinOperator op_type,
 
     case BuiltinOperator_ELU: {
       return ParseElu(op, error_reporter, allocator, builtin_data);
+    }
+
+    case BuiltinOperator_EMBEDDING_LOOKUP: {
+      return ParseEmbeddingLookup(op, error_reporter, allocator, builtin_data);
     }
 
     case BuiltinOperator_EXP: {
@@ -540,6 +544,14 @@ TfLiteStatus ParseOpDataTfLite(const Operator* op, BuiltinOperator op_type,
 
     case BuiltinOperator_ZEROS_LIKE: {
       return ParseZerosLike(op, error_reporter, allocator, builtin_data);
+    }
+
+    case BuiltinOperator_BITWISE_XOR: {
+      return ParseBitwiseXor(op, error_reporter, allocator, builtin_data);
+    }
+
+    case BuiltinOperator_RIGHT_SHIFT: {
+      return ParseRightShift(op, error_reporter, allocator, builtin_data);
     }
 
     case BuiltinOperator_CAST: {
@@ -845,6 +857,12 @@ TfLiteStatus ParseOpDataTfLite(const Operator* op, BuiltinOperator op_type,
       *builtin_data = params.release();
       return kTfLiteOk;
     }
+
+    // TODO: skip param parsing for now since ops below don't have kernels
+    case BuiltinOperator_STABLEHLO_SLICE:
+    case BuiltinOperator_STABLEHLO_BROADCAST_IN_DIM:
+    case BuiltinOperator_STABLEHLO_CONVOLUTION:
+
     // Below are the ops with no builtin_data structure.
     // TODO(aselle): Implement call in BuiltinOptions, but nullptrs are
     // ok for now, since there is no call implementation either.
@@ -855,7 +873,6 @@ TfLiteStatus ParseOpDataTfLite(const Operator* op, BuiltinOperator op_type,
     case BuiltinOperator_CUSTOM:
     case BuiltinOperator_DENSIFY:
     case BuiltinOperator_DYNAMIC_UPDATE_SLICE:
-    case BuiltinOperator_EMBEDDING_LOOKUP:
     case BuiltinOperator_EQUAL:
     case BuiltinOperator_HASHTABLE_FIND:
     case BuiltinOperator_HASHTABLE_IMPORT:
@@ -885,7 +902,16 @@ TfLiteStatus ParseOpDataTfLite(const Operator* op, BuiltinOperator op_type,
     case BuiltinOperator_UNSORTED_SEGMENT_SUM:
     case BuiltinOperator_ATAN2:
     case BuiltinOperator_SIGN:
+    case BuiltinOperator_BITCAST:
     case BuiltinOperator_WHERE:
+    case BuiltinOperator_STABLEHLO_LOGISTIC:
+    case BuiltinOperator_STABLEHLO_ADD:
+    case BuiltinOperator_STABLEHLO_DIVIDE:
+    case BuiltinOperator_STABLEHLO_MULTIPLY:
+    case BuiltinOperator_STABLEHLO_MAXIMUM:
+    case BuiltinOperator_STABLEHLO_RESHAPE:
+    case BuiltinOperator_STABLEHLO_CLAMP:
+    case BuiltinOperator_STABLEHLO_CONCATENATE:
       return kTfLiteOk;
     case BuiltinOperator_PLACEHOLDER_FOR_GREATER_OP_CODES:
       return kTfLiteError;
@@ -1332,6 +1358,14 @@ TfLiteStatus ParseDiv(const Operator* op, ErrorReporter* error_reporter,
 // selective registration for the OpResolver implementation in micro.
 TfLiteStatus ParseElu(const Operator*, ErrorReporter*, BuiltinDataAllocator*,
                       void**) {
+  return kTfLiteOk;
+}
+
+// We have this parse function instead of directly returning kTfLiteOk from the
+// switch-case in ParseOpData because this function is used as part of the
+// selective registration for the OpResolver implementation in micro.
+TfLiteStatus ParseEmbeddingLookup(const Operator*, ErrorReporter*,
+                                  BuiltinDataAllocator*, void**) {
   return kTfLiteOk;
 }
 
@@ -2160,6 +2194,8 @@ TfLiteStatus ParseUnidirectionalSequenceLSTM(const Operator* op,
     params->time_major = seq_lstm_params->time_major();
     params->asymmetric_quantize_inputs =
         seq_lstm_params->asymmetric_quantize_inputs();
+    params->diagonal_recurrent_tensors =
+        seq_lstm_params->diagonal_recurrent_tensors();
   }
   *builtin_data = params.release();
   return kTfLiteOk;
@@ -2243,6 +2279,7 @@ TfLiteStatus ParseStridedSlice(const Operator* op,
     params->ellipsis_mask = schema_params->ellipsis_mask();
     params->new_axis_mask = schema_params->new_axis_mask();
     params->shrink_axis_mask = schema_params->shrink_axis_mask();
+    params->offset = schema_params->offset();
   } else {
     // TODO(b/157480169): We should either return kTfLiteError or fill in some
     // reasonable defaults in the params struct. We are not doing so until we
@@ -2338,6 +2375,9 @@ TfLiteStatus ParseTransposeConv(const Operator* op,
     params->padding = ConvertPadding(transpose_conv_params->padding());
     params->stride_width = transpose_conv_params->stride_w();
     params->stride_height = transpose_conv_params->stride_h();
+
+    params->activation =
+        ConvertActivation(transpose_conv_params->fused_activation_function());
   } else {
     // TODO(b/157480169): We should either return kTfLiteError or fill in some
     // reasonable defaults in the params struct. We are not doing so until we
@@ -2433,6 +2473,22 @@ TfLiteStatus ParseWhile(const Operator* op, ErrorReporter* error_reporter,
 // selective registration for the OpResolver implementation in micro.
 TfLiteStatus ParseZerosLike(const Operator*, ErrorReporter*,
                             BuiltinDataAllocator*, void**) {
+  return kTfLiteOk;
+}
+
+// We have this parse function instead of directly returning kTfLiteOk from the
+// switch-case in ParseOpData because this function is used as part of the
+// selective registration for the OpResolver implementation in micro.
+TfLiteStatus ParseBitwiseXor(const Operator*, ErrorReporter*,
+                             BuiltinDataAllocator*, void**) {
+  return kTfLiteOk;
+}
+
+// We have this parse function instead of directly returning kTfLiteOk from the
+// switch-case in ParseOpData because this function is used as part of the
+// selective registration for the OpResolver implementation in micro.
+TfLiteStatus ParseRightShift(const Operator*, ErrorReporter*,
+                             BuiltinDataAllocator*, void**) {
   return kTfLiteOk;
 }
 
